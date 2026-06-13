@@ -1,10 +1,15 @@
 services:
+  # ----------------------------
+  # 基础设施
+  # ----------------------------
   redis:
     image: redis:7-alpine
     container_name: aigc-redis
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes
+    networks:
+      - aigc-network
 
   nacos:
     image: nacos/nacos-server:v2.3.0
@@ -17,9 +22,13 @@ services:
       - PREFER_HOST_MODE=hostname
       - SPRING_SECURITY_ENABLED=false
       - NACOS_AUTH_ENABLE=false
+      - NACOS_CORE_AUTH_SERVER_IDENTITY_KEY=aigc
+      - NACOS_CORE_AUTH_SERVER_IDENTITY_VALUE=aigc
+    networks:
+      - aigc-network
 
   elasticsearch:
-    image: elasticsearch:8.14.3
+    image: elasticsearch:8.16.0
     container_name: aigc-es
     ports:
       - "9200:9200"
@@ -27,3 +36,157 @@ services:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - aigc-network
+
+  # Milvus 依赖：etcd + minio
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: aigc-etcd
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - etcd-data:/etcd
+    command: >
+      etcd -advertise-client-urls http://127.0.0.1:2379
+      -listen-client-urls http://0.0.0.0:2379
+      --data-dir /etcd
+    networks:
+      - aigc-network
+
+  minio:
+    image: minio/minio:RELEASE.2024-01-13T07-53-03Z
+    container_name: aigc-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/minio_data
+    command: minio server /minio_data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - aigc-network
+
+  milvus-standalone:
+    image: milvusdb/milvus:v2.4.17
+    container_name: aigc-milvus
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    volumes:
+      - milvus-data:/var/lib/milvus
+    ports:
+      - "19530:19530"
+    depends_on:
+      - etcd
+      - minio
+    networks:
+      - aigc-network
+
+  # ----------------------------
+  # Java 微服务
+  # ----------------------------
+  knowledge-parse-service:
+    build:
+      context: .
+      dockerfile: knowledge-parse-service/Dockerfile
+    container_name: aigc-knowledge-parse-service
+    ports:
+      - "8001:8001"
+    environment:
+      - NACOS_SERVER_ADDR=nacos:8848
+      - REDIS_HOST=redis
+      - MILVUS_HOST=milvus-standalone
+      - ES_HOSTS=http://elasticsearch:9200
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-doubao-embedding-large}
+    depends_on:
+      - nacos
+      - redis
+      - milvus-standalone
+      - elasticsearch
+    networks:
+      - aigc-network
+
+  ai-orchestration-service:
+    build:
+      context: .
+      dockerfile: ai-orchestration-service/Dockerfile
+    container_name: aigc-ai-orchestration-service
+    ports:
+      - "8002:8002"
+    environment:
+      - NACOS_SERVER_ADDR=nacos:8848
+      - REDIS_HOST=redis
+      - MILVUS_HOST=milvus-standalone
+      - ES_HOSTS=http://elasticsearch:9200
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-doubao-pro-32k-241215}
+      - ALI_AI_API_KEY=${ALI_AI_API_KEY}
+    depends_on:
+      - nacos
+      - redis
+      - milvus-standalone
+      - elasticsearch
+      - knowledge-parse-service
+    networks:
+      - aigc-network
+
+  content-gen-service:
+    build:
+      context: .
+      dockerfile: content-gen-service/Dockerfile
+    container_name: aigc-content-gen-service
+    ports:
+      - "8003:8003"
+    environment:
+      - NACOS_SERVER_ADDR=nacos:8848
+      - REDIS_HOST=redis
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+    depends_on:
+      - nacos
+      - redis
+    networks:
+      - aigc-network
+
+  spring-cloud-gateway:
+    build:
+      context: .
+      dockerfile: spring-cloud-gateway/Dockerfile
+    container_name: aigc-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - NACOS_SERVER_ADDR=nacos:8848
+      - REDIS_HOST=redis
+    depends_on:
+      - nacos
+      - redis
+      - knowledge-parse-service
+      - ai-orchestration-service
+      - content-gen-service
+    networks:
+      - aigc-network
+
+volumes:
+  es-data:
+  etcd-data:
+  minio-data:
+  milvus-data:
+
+networks:
+  aigc-network:
+    driver: bridge

@@ -3,6 +3,18 @@ target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+.mvn/timing.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/wrapper/maven-wrapper.jar
+.flattened-pom.xml
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
 
 # IDE
 .idea/
@@ -10,10 +22,16 @@ target/
 *.iml
 *.ipr
 .vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
 # Logs
 *.log
 logs/
+log/
 
 # OS
 .DS_Store
@@ -23,8 +41,39 @@ Thumbs.db
 *.tmp
 *.swp
 *~
+.tmp/
 
 # Environment
 .env
+.env.*
+!.env.example
 application-local.yml
 application-prod.yml
+application-dev.yml
+
+# Node (if any frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+
+# Docker
+docker-data/
+volumes/
+
+# Test reports
+surefire-reports/
+failsafe-reports/
+*.exec
+jacoco.exec
+
+# Misc
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+replay_pid*
