@@ -1,0 +1,90 @@
+server:
+  port: 8003
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: content-gen-service
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        namespace: ${NACOS_NAMESPACE:aigc-dev}
+        group: AIGC_GROUP
+        metadata:
+          version: 1.0.0
+          region: cn-hangzhou
+      config:
+        namespace: ${NACOS_NAMESPACE:aigc-dev}
+        group: AIGC_GROUP
+        file-extension: yaml
+        shared-configs:
+          - data-id: aigc-common.yaml
+            group: AIGC_GROUP
+            refresh: true
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+      eager: true
+  redis:
+    host: ${REDIS_HOST:127.0.0.1}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: 2
+    lettuce:
+      pool:
+        max-active: 32
+        max-idle: 16
+        min-idle: 4
+        max-wait: 3000ms
+  ai:
+    alibaba:
+      api-key: ${ALI_AI_API_KEY:YOUR_DASHSCOPE_API_KEY}
+      chat:
+        options:
+          model: qwen-max-latest
+          temperature: 0.85
+          max-tokens: 4096
+      image:
+        options:
+          model: wanx-v1
+          size: 1024*1024
+
+# 内容生成模板/任务线程池
+content:
+  template-path: classpath:templates/
+  default-output-format: markdown
+
+async:
+  executor:
+    text-gen:
+      core-pool-size: 8
+      max-pool-size: 32
+      queue-capacity: 400
+      keep-alive-seconds: 60
+      thread-name-prefix: text-gen-async-
+    image-gen:
+      core-pool-size: 4
+      max-pool-size: 16
+      queue-capacity: 100
+      keep-alive-seconds: 60
+      thread-name-prefix: image-gen-async-
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    com.aigc.content.gen: INFO
+    org.springframework.ai: DEBUG

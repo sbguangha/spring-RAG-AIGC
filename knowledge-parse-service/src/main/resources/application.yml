@@ -1,0 +1,90 @@
+server:
+  port: 8001
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: knowledge-parse-service
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      # Nacos 服务注册与配置中心
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        namespace: ${NACOS_NAMESPACE:aigc-dev}
+        group: AIGC_GROUP
+        metadata:
+          version: 1.0.0
+          region: cn-hangzhou
+      config:
+        namespace: ${NACOS_NAMESPACE:aigc-dev}
+        group: AIGC_GROUP
+        file-extension: yaml
+        shared-configs:
+          - data-id: aigc-common.yaml
+            group: AIGC_GROUP
+            refresh: true
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+      eager: true
+  redis:
+    host: ${REDIS_HOST:127.0.0.1}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: 0
+    lettuce:
+      pool:
+        max-active: 32
+        max-idle: 16
+        min-idle: 4
+        max-wait: 3000ms
+
+# 向量库占位配置
+vector:
+  milvus:
+    host: ${MILVUS_HOST:127.0.0.1}
+    port: ${MILVUS_PORT:19530}
+    database-name: aigc_knowledge
+    collection-name: knowledge_chunks
+    dimension: 1536
+  elasticsearch:
+    hosts: ${ES_HOSTS:http://127.0.0.1:9200}
+    username: ${ES_USERNAME:}
+    password: ${ES_PASSWORD:}
+    index-prefix: aigc
+
+# 自定义线程池：用于 CompletableFuture 并发解析/向量化
+async:
+  executor:
+    parse:
+      core-pool-size: 4
+      max-pool-size: 16
+      queue-capacity: 200
+      keep-alive-seconds: 60
+      thread-name-prefix: parse-async-
+    vectorize:
+      core-pool-size: 8
+      max-pool-size: 32
+      queue-capacity: 500
+      keep-alive-seconds: 60
+      thread-name-prefix: vectorize-async-
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    com.aigc.knowledge.parse: INFO
+    io.milvus: WARN
+    co.elastic.clients: WARN

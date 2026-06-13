@@ -1,0 +1,127 @@
+server:
+  port: 8002
+  servlet:
+    context-path: /
+
+spring:
+  application:
+    name: ai-orchestration-service
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        namespace: ${NACOS_NAMESPACE:aigc-dev}
+        group: AIGC_GROUP
+        metadata:
+          version: 1.0.0
+          region: cn-hangzhou
+      config:
+        namespace: ${NACOS_NAMESPACE:aigc-dev}
+        group: AIGC_GROUP
+        file-extension: yaml
+        shared-configs:
+          - data-id: aigc-common.yaml
+            group: AIGC_GROUP
+            refresh: true
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+      eager: true
+  redis:
+    host: ${REDIS_HOST:127.0.0.1}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: 1
+    lettuce:
+      pool:
+        max-active: 64
+        max-idle: 32
+        min-idle: 8
+        max-wait: 3000ms
+  ai:
+    alibaba:
+      api-key: ${ALI_AI_API_KEY:YOUR_DASHSCOPE_API_KEY}
+      chat:
+        options:
+          model: qwen-max-latest
+          temperature: 0.7
+          max-tokens: 2048
+      embedding:
+        options:
+          model: text-embedding-v3
+    openai:
+      # 豆包 / DeepSeek 等 OpenAI 兼容接口配置
+      base-url: ${OPENAI_BASE_URL:https://ark.cn-beijing.volces.com/api/v3}
+      api-key: ${OPENAI_API_KEY:YOUR_DOUBAO_OR_DEEPSEEK_API_KEY}
+      chat:
+        options:
+          model: ${OPENAI_CHAT_MODEL:doubao-pro-32k-241215}
+          temperature: 0.7
+          max-tokens: 2048
+
+# Feign 下游服务配置
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 30000
+        logger-level: basic
+  okhttp:
+    enabled: true
+
+# RAG 检索配置
+rag:
+  top-k: 5
+  score-threshold: 0.65
+  rerank-enabled: true
+  hybrid-search:
+    vector-weight: 0.7
+    keyword-weight: 0.3
+  system-prompt: |
+    你是企业级智能知识库助手。请严格基于以下【检索上下文】和【历史对话】回答问题。
+    如果上下文中没有足够信息，请明确告知用户，不要编造答案。
+  # Redis 历史对话 KEY 前缀
+  history-key-prefix: rag:history
+  # 单次保留的最大历史轮数（一问一答算一轮）
+  history-rounds: 5
+  # RAG 引擎自定义线程池配置（IO 密集型）
+  executor:
+    core-pool-size: 8
+    max-pool-size: 32
+    queue-capacity: 200
+    keep-alive-seconds: 60
+
+# 编排异步线程池：用于多模型并发调用/结果融合
+async:
+  executor:
+    retrieval:
+      core-pool-size: 8
+      max-pool-size: 24
+      queue-capacity: 300
+      keep-alive-seconds: 60
+      thread-name-prefix: retrieval-async-
+    model-call:
+      core-pool-size: 16
+      max-pool-size: 64
+      queue-capacity: 1000
+      keep-alive-seconds: 60
+      thread-name-prefix: model-call-async-
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    com.aigc.orchestration: INFO
+    org.springframework.ai: DEBUG

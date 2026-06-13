@@ -1,0 +1,110 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: spring-cloud-gateway
+  profiles:
+    active: dev
+  cloud:
+    nacos:
+      server-addr: ${NACOS_SERVER_ADDR:127.0.0.1:8848}
+      username: ${NACOS_USERNAME:nacos}
+      password: ${NACOS_PASSWORD:nacos}
+      discovery:
+        namespace: ${NACOS_NAMESPACE:aigc-dev}
+        group: AIGC_GROUP
+        register-enabled: true
+      config:
+        namespace: ${NACOS_NAMESPACE:aigc-dev}
+        group: AIGC_GROUP
+        file-extension: yaml
+        shared-configs:
+          - data-id: aigc-common.yaml
+            group: AIGC_GROUP
+            refresh: true
+    sentinel:
+      transport:
+        dashboard: ${SENTINEL_DASHBOARD:127.0.0.1:8858}
+      eager: true
+      scg:
+        fallback:
+          mode: response
+          response-body: '{"code":429,"message":"请求过于频繁，请稍后再试"}'
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+          lower-case-service-id: true
+      routes:
+        - id: knowledge-parse-service
+          uri: lb://knowledge-parse-service
+          predicates:
+            - Path=/api/knowledge/**
+          filters:
+            - StripPrefix=2
+            - name: Retry
+              args:
+                retries: 2
+                statuses: BAD_GATEWAY,SERVICE_UNAVAILABLE
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 100
+                redis-rate-limiter.burstCapacity: 200
+                key-resolver: "#{@ipKeyResolver}"
+        - id: ai-orchestration-service
+          uri: lb://ai-orchestration-service
+          predicates:
+            - Path=/api/ai/**
+          filters:
+            - StripPrefix=2
+            - name: Retry
+              args:
+                retries: 1
+                statuses: BAD_GATEWAY
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 50
+                redis-rate-limiter.burstCapacity: 100
+                key-resolver: "#{@ipKeyResolver}"
+        - id: content-gen-service
+          uri: lb://content-gen-service
+          predicates:
+            - Path=/api/content/**
+          filters:
+            - StripPrefix=2
+            - name: Retry
+              args:
+                retries: 1
+                statuses: BAD_GATEWAY
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 30
+                redis-rate-limiter.burstCapacity: 60
+                key-resolver: "#{@ipKeyResolver}"
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: false
+  redis:
+    host: ${REDIS_HOST:127.0.0.1}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: 9
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway
+  endpoint:
+    health:
+      show-details: when_authorized
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    reactor.netty: WARN
