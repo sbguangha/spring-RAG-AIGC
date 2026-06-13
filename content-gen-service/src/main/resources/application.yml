@@ -59,6 +59,15 @@ spring:
 content:
   template-path: classpath:templates/
   default-output-format: markdown
+  image-gen:
+    # Redis List 作为生图任务队列
+    task-queue-key: image:gen:queue
+    # Redis Hash 前缀：image:gen:result:{taskId}
+    result-key-prefix: image:gen:result
+    # 消费者阻塞弹出超时（秒），0 表示一直阻塞
+    poll-timeout-seconds: 5
+    # 单次轮询间隔（毫秒），非阻塞兜底
+    poll-interval-ms: 1000
 
 async:
   executor:

@@ -36,7 +36,7 @@ public class KnowledgeParseServiceApplication {
 
         String firstModule = Optional.ofNullable(modules)
                 .filter(list -> !list.isEmpty())
-                .map(List::get)
+                .map(list -> list.get(0))
                 .orElse("default-module");
 
         log.info("知识解析服务启动成功，首个模块: {}", firstModule);
