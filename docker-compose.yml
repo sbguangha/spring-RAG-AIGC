@@ -1,0 +1,29 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: aigc-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+
+  nacos:
+    image: nacos/nacos-server:v2.3.0
+    container_name: aigc-nacos
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    environment:
+      - MODE=standalone
+      - PREFER_HOST_MODE=hostname
+      - SPRING_SECURITY_ENABLED=false
+      - NACOS_AUTH_ENABLE=false
+
+  elasticsearch:
+    image: elasticsearch:8.14.3
+    container_name: aigc-es
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
