@@ -56,11 +56,11 @@ class DocumentParserControllerTest {
                 .status("SUCCESS")
                 .build();
 
-        when(documentParserService.parse(any(), anyBoolean())).thenReturn(result);
+        when(documentParserService.parse(any())).thenReturn(result);
 
         mockMvc.perform(multipart("/api/document/parse")
                         .file(file)
-                        .param("withEmbedding", "false"))
+                        .param("withIndex", "false"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("SUCCESS"))
                 .andExpect(jsonPath("$.fileName").value("test.txt"));

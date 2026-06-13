@@ -53,6 +53,12 @@ spring:
         options:
           # Doubao 嵌入模型示例：doubao-embedding-large；DeepSeek 可替换为对应模型名
           model: ${OPENAI_EMBEDDING_MODEL:doubao-embedding-large}
+    vectorstore:
+      # 禁用 Spring AI starter 的自动配置，使用项目自定义 VectorStoreConfig
+      milvus:
+        enabled: false
+      elasticsearch:
+        enabled: false
 
 # 文档解析与切片自定义配置
 parse:

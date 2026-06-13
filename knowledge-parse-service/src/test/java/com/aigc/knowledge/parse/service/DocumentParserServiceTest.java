@@ -39,11 +39,14 @@ class DocumentParserServiceTest {
     @Mock
     private EmbeddingClient embeddingClient;
 
+    @Mock
+    private VectorStoreWriter vectorStoreWriter;
+
     private DocumentParserService parserService;
 
     @BeforeEach
     void setUp() {
-        parserService = new DocumentParserService(embeddingClient);
+        parserService = new DocumentParserService(embeddingClient, vectorStoreWriter);
     }
 
     @Test
@@ -160,6 +163,22 @@ class DocumentParserServiceTest {
         // 每个切片长度不应超过 512
         assertTrue(result.getChunks().stream()
                 .allMatch(chunk -> chunk.getContent().length() <= 512));
+    }
+
+    @Test
+    @DisplayName("解析并入库应调用 VectorStoreWriter")
+    void parseAndIndex_shouldCallVectorStoreWriter() {
+        String content = "这是测试入库的文本内容。";
+        MultipartFile file = new MockMultipartFile(
+                "file",
+                "index.txt",
+                "text/plain",
+                content.getBytes(StandardCharsets.UTF_8));
+
+        ParseResult result = parserService.parseAndIndex(file);
+
+        assertEquals("SUCCESS", result.getStatus());
+        verify(vectorStoreWriter, times(1)).writeChunks(anyList(), eq("index.txt"));
     }
 
     /**

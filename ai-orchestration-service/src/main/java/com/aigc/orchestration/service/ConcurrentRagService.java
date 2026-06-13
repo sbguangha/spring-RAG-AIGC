@@ -87,6 +87,11 @@ public class ConcurrentRagService {
      */
     private final Executor ragExecutor;
 
+    /**
+     * 语义去重器：用于移除意思相同但表述不同的文档。
+     */
+    private final SemanticDeduplicator semanticDeduplicator;
+
     @Value("${rag.top-k:5}")
     private int topK;
 
@@ -108,12 +113,14 @@ public class ConcurrentRagService {
     public ConcurrentRagService(@Qualifier("milvusVectorStore") VectorStore milvusVectorStore,
                                 @Qualifier("elasticsearchVectorStore") VectorStore elasticsearchVectorStore,
                                 @Qualifier("openAiChatModel") ChatModel chatModel,
+                                SemanticDeduplicator semanticDeduplicator,
                                 StringRedisTemplate redisTemplate,
                                 @Qualifier("ragExecutor") Executor ragExecutor) {
         this.milvusVectorStore = milvusVectorStore;
         this.elasticsearchVectorStore = elasticsearchVectorStore;
         // 基于指定的 ChatModel 构建 ChatClient，用于流式对话
         this.chatClient = ChatClient.builder(chatModel).build();
+        this.semanticDeduplicator = semanticDeduplicator;
         this.redisTemplate = redisTemplate;
         this.ragExecutor = ragExecutor;
     }
@@ -378,8 +385,11 @@ public class ConcurrentRagService {
         // 步骤 2：按内容哈希去重，保留分数更高的版本
         List<Document> uniqueDocs = deduplicateByContent(filteredDocs);
 
-        // 步骤 3+4：重排序并截取 TopK
-        return uniqueDocs.stream()
+        // 步骤 3：语义去重，移除意思相同但表述不同的文档
+        List<Document> semanticallyUniqueDocs = semanticDeduplicator.deduplicate(uniqueDocs);
+
+        // 步骤 4+5：重排序并截取 TopK
+        return semanticallyUniqueDocs.stream()
                 .map(doc -> new ScoredDocument(doc, computeHybridScore(doc, query)))
                 .sorted(Comparator.comparingDouble(ScoredDocument::getScore).reversed())
                 .limit(topK)
@@ -388,24 +398,31 @@ public class ConcurrentRagService {
     }
 
     /**
-     * 从 Document metadata 中提取向量相似度分数。
+     * 从 Document metadata 中提取归一化相似度分数。
      *
      * 说明：不同向量库对分数字段命名不同，
-     *       Milvus 常返回 distance（L2 距离，越小越相似），
-     *       Elasticsearch 或 Spring AI 某些实现返回 score（越大越相似）。
-     *       这里统一按 "score" 越大越相似处理；
-     *       若实际为 distance，建议在 VectorStore 配置层做 1/(1+distance) 归一化。
+     *       - score（ES / Spring AI）：越大越相似，直接使用；
+     *       - distance（Milvus L2 距离）：越小越相似，需要反转为 1/(1+distance)。
      */
     private double extractVectorScore(Document doc) {
         return Optional.ofNullable(doc.getMetadata())
-                .map(metadata -> metadata.get("score"))
-                .map(Object::toString)
-                .map(this::parseDoubleSafely)
-                .or(() -> Optional.ofNullable(doc.getMetadata())
-                        .map(metadata -> metadata.get("distance"))
-                        .map(Object::toString)
-                        .map(this::parseDoubleSafely))
+                .map(this::doExtractVectorScore)
                 .orElse(0.0);
+    }
+
+    private double doExtractVectorScore(Map<String, Object> metadata) {
+        Object scoreObj = metadata.get("score");
+        if (scoreObj != null) {
+            return parseDoubleSafely(scoreObj.toString());
+        }
+
+        Object distanceObj = metadata.get("distance");
+        if (distanceObj != null) {
+            double distance = parseDoubleSafely(distanceObj.toString());
+            return distance <= 0.0 ? 0.0 : 1.0 / (1.0 + distance);
+        }
+
+        return 0.0;
     }
 
     /**

@@ -65,6 +65,7 @@ public class DocumentParserService {
     private static final Pattern PARAGRAPH_SPLITTER = Pattern.compile("\\n\\s*\\n+");
 
     private final EmbeddingClient embeddingClient;
+    private final VectorStoreWriter vectorStoreWriter;
 
     /**
      * 解析上传文件，默认不生成 Embedding。
@@ -299,5 +300,23 @@ public class DocumentParserService {
         base.setChunks(mappedChunks);
         base.setChunkCount(mappedChunks.size());
         return base;
+    }
+
+    /**
+     * 解析并入库：将文档解析为切片后，直接写入 Milvus + Elasticsearch。
+     *
+     * @param file 上传文件
+     * @return 解析结果（不生成独立 Embedding，由 VectorStore 统一编码）
+     */
+    public ParseResult parseAndIndex(MultipartFile file) {
+        long start = System.currentTimeMillis();
+        ParseResult result = parse(file, false);
+
+        if ("SUCCESS".equals(result.getStatus())) {
+            vectorStoreWriter.writeChunks(result.getChunks(), result.getFileName());
+        }
+
+        result.setElapsedMillis(System.currentTimeMillis() - start);
+        return result;
     }
 }
