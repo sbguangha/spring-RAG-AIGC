@@ -8,6 +8,12 @@ services:
     ports:
       - "6379:6379"
     command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
     networks:
       - aigc-network
 
@@ -24,6 +30,13 @@ services:
       - NACOS_AUTH_ENABLE=false
       - NACOS_CORE_AUTH_SERVER_IDENTITY_KEY=aigc
       - NACOS_CORE_AUTH_SERVER_IDENTITY_VALUE=aigc
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8848/nacos"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
     networks:
       - aigc-network
 
@@ -38,6 +51,13 @@ services:
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
     volumes:
       - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
     networks:
       - aigc-network
 
@@ -56,6 +76,7 @@ services:
       etcd -advertise-client-urls http://127.0.0.1:2379
       -listen-client-urls http://0.0.0.0:2379
       --data-dir /etcd
+    restart: unless-stopped
     networks:
       - aigc-network
 
@@ -71,6 +92,13 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
     networks:
       - aigc-network
 
@@ -88,8 +116,17 @@ services:
     ports:
       - "19530:19530"
     depends_on:
-      - etcd
-      - minio
+      etcd:
+        condition: service_started
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9091/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+    restart: unless-stopped
     networks:
       - aigc-network
 
@@ -112,10 +149,15 @@ services:
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
       - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-doubao-embedding-large}
     depends_on:
-      - nacos
-      - redis
-      - milvus-standalone
-      - elasticsearch
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      milvus-standalone:
+        condition: service_healthy
+    restart: unless-stopped
     networks:
       - aigc-network
 
@@ -136,11 +178,17 @@ services:
       - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-doubao-pro-32k-241215}
       - ALI_AI_API_KEY=${ALI_AI_API_KEY}
     depends_on:
-      - nacos
-      - redis
-      - milvus-standalone
-      - elasticsearch
-      - knowledge-parse-service
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      milvus-standalone:
+        condition: service_healthy
+      knowledge-parse-service:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - aigc-network
 
@@ -157,8 +205,11 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
     depends_on:
-      - nacos
-      - redis
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
     networks:
       - aigc-network
 
@@ -173,11 +224,17 @@ services:
       - NACOS_SERVER_ADDR=nacos:8848
       - REDIS_HOST=redis
     depends_on:
-      - nacos
-      - redis
-      - knowledge-parse-service
-      - ai-orchestration-service
-      - content-gen-service
+      nacos:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      knowledge-parse-service:
+        condition: service_started
+      ai-orchestration-service:
+        condition: service_started
+      content-gen-service:
+        condition: service_started
+    restart: unless-stopped
     networks:
       - aigc-network
 
