@@ -44,6 +44,26 @@ spring:
         min-idle: 4
         max-wait: 3000ms
 
+  ai:
+    openai:
+      # 豆包 / DeepSeek 等 OpenAI 兼容接口的 API Key 与 Base URL
+      api-key: ${OPENAI_API_KEY:your-api-key}
+      base-url: ${OPENAI_BASE_URL:https://ark.cn-beijing.volces.com/api/v3}
+      embedding:
+        options:
+          # Doubao 嵌入模型示例：doubao-embedding-large；DeepSeek 可替换为对应模型名
+          model: ${OPENAI_EMBEDDING_MODEL:doubao-embedding-large}
+
+# 文档解析与切片自定义配置
+parse:
+  chunk:
+    size: 512
+    overlap: 64
+  embedding:
+    batch-size: 8
+    # 默认是否在上传时同步生成 Embedding（生产环境建议异步）
+    default-enabled: false
+
 # 向量库占位配置
 vector:
   milvus:
@@ -57,24 +77,6 @@ vector:
     username: ${ES_USERNAME:}
     password: ${ES_PASSWORD:}
     index-prefix: aigc
-
-  ai:
-    alibaba:
-      api-key: ${ALI_AI_API_KEY:YOUR_DASHSCOPE_API_KEY}
-      embedding:
-        options:
-          model: text-embedding-v3
-
-# 文档解析配置
-parse:
-  # 单个 Chunk 的最大字符数
-  chunk-max-chars: 512
-  # Chunk 之间的重叠字符数（保证语义连贯）
-  chunk-overlap-chars: 64
-  # 批量 Embedding 时的每批大小
-  embedding-batch-size: 16
-  # 批量 Embedding 并发线程数（控制 API 限流）
-  embedding-concurrency: 4
 
 # 自定义线程池：用于 CompletableFuture 并发解析/向量化
 async:

@@ -9,6 +9,9 @@ import java.util.List;
 
 /**
  * 文档解析结果。
+ * <p>
+ * 包含原始文件元信息与解析后得到的全部 Chunk 列表，
+ * 用于控制器返回给调用方。
  */
 @Data
 @Builder
@@ -17,37 +20,47 @@ import java.util.List;
 public class ParseResult {
 
     /**
-     * 文件名。
+     * 原始文件名
      */
     private String fileName;
 
     /**
-     * 文件类型：PDF / TXT。
+     * 文件 MIME 类型，例如 application/pdf、text/plain
      */
-    private String fileType;
+    private String contentType;
 
     /**
-     * 原始文本内容。
+     * 文件大小（字节）
      */
-    private String rawText;
+    private long fileSize;
 
     /**
-     * 清洗后的文本内容。
+     * 文档总字符数
      */
-    private String cleanedText;
+    private int totalChars;
 
     /**
-     * 切片列表。
+     * 解析生成的切片总数
      */
-    private List<DocumentChunk> chunks;
+    private int chunkCount;
 
     /**
-     * 解析是否成功。
+     * 解析后的语义切片列表
      */
-    private boolean success;
+    private List<Chunk> chunks;
 
     /**
-     * 错误信息（解析失败时）。
+     * 解析耗时（毫秒）
      */
-    private String errorMsg;
+    private long elapsedMillis;
+
+    /**
+     * 解析状态：SUCCESS / PARTIAL / FAILED
+     */
+    private String status;
+
+    /**
+     * 失败时的简要错误信息
+     */
+    private String errorMessage;
 }

@@ -45,6 +45,7 @@
         <commons-lang3.version>3.14.0</commons-lang3.version>
         <hutool.version>5.8.29</hutool.version>
         <fastjson2.version>2.0.52</fastjson2.version>
+        <pdfbox.version>3.0.2</pdfbox.version>
     </properties>
 
     <dependencyManagement>
@@ -136,6 +137,13 @@
                 <groupId>com.alibaba.fastjson2</groupId>
                 <artifactId>fastjson2</artifactId>
                 <version>${fastjson2.version}</version>
+            </dependency>
+
+            <!-- PDF 解析 -->
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>${pdfbox.version}</version>
             </dependency>
 
             <!-- 向量/存储客户端显式版本 -->

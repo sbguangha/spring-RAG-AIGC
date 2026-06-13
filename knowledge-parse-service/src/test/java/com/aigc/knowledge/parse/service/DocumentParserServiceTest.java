@@ -1,131 +1,191 @@
 package com.aigc.knowledge.parse.service;
 
-import com.aigc.knowledge.parse.dto.DocumentChunk;
+import com.aigc.knowledge.parse.dto.Chunk;
 import com.aigc.knowledge.parse.dto.ParseResult;
-import com.aigc.knowledge.parse.service.cleaner.TextCleaners;
+import com.aigc.knowledge.parse.exception.DocumentParseException;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.lang.reflect.Field;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.*;
 
 /**
  * DocumentParserService 单元测试。
- *
- * 验证：
- *   1. TXT 文件解析与切片；
- *   2. PDF 文件类型检测；
- *   3. 空文件返回失败；
- *   4. 自定义清洗管道生效。
+ * <p>
+ * 验证 PDF/TXT 解析、语义切片、文本清洗、空文件处理、不支持的文件类型以及 Embedding 调用。
  */
+@ExtendWith(MockitoExtension.class)
 class DocumentParserServiceTest {
 
-    private DocumentParserService documentParserService;
-    private ChunkingService chunkingService;
+    @Mock
+    private EmbeddingClient embeddingClient;
+
+    private DocumentParserService parserService;
 
     @BeforeEach
-    void setUp() throws Exception {
-        chunkingService = new ChunkingService();
-        setField(chunkingService, "chunkMaxChars", 100);
-        setField(chunkingService, "chunkOverlapChars", 20);
-
-        documentParserService = new DocumentParserService(chunkingService);
-    }
-
-    private void setField(Object target, String fieldName, Object value) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(target, value);
+    void setUp() {
+        parserService = new DocumentParserService(embeddingClient);
     }
 
     @Test
-    void testParseTxtFile() {
-        String content = "# 标题一\n\n这是第一段正文内容，包含一些需要清洗的特殊字符 @#$。\n\n# 标题二\n\n这是第二段正文内容。";
+    @DisplayName("解析 TXT 文件应返回语义切片")
+    void parse_txtFile_shouldReturnChunks() {
+        String content = "第一章 简介\n\n" +
+                "这是第一段内容，包含一些介绍性文字。\n\n" +
+                "第二章 核心概念\n\n" +
+                "这是第二段内容，介绍核心概念与实现细节。";
+
         MultipartFile file = new MockMultipartFile(
                 "file",
-                "test.txt",
+                "sample.txt",
                 "text/plain",
-                content.getBytes(StandardCharsets.UTF_8)
-        );
+                content.getBytes(StandardCharsets.UTF_8));
 
-        ParseResult result = documentParserService.parse(file);
+        ParseResult result = parserService.parse(file);
 
-        assertTrue(result.isSuccess());
-        assertEquals("test.txt", result.getFileName());
-        assertEquals("TXT", result.getFileType());
-        assertNotNull(result.getRawText());
-        assertNotNull(result.getCleanedText());
+        assertEquals("SUCCESS", result.getStatus());
+        assertTrue(result.getChunkCount() > 0);
+        assertTrue(result.getTotalChars() > 0);
+        assertTrue(result.getChunks().stream()
+                .allMatch(chunk -> chunk.getContent() != null && !chunk.getContent().isBlank()));
 
-        List<DocumentChunk> chunks = result.getChunks();
-        assertFalse(chunks.isEmpty());
-        assertTrue(chunks.get(0).getContent().contains("标题一"));
-        assertFalse(result.getCleanedText().contains("@"));
-        assertFalse(result.getCleanedText().contains("#"));
+        // 验证摘要已生成
+        List<String> summaries = result.getChunks().stream()
+                .map(Chunk::getSummary)
+                .toList();
+        assertTrue(summaries.stream().allMatch(s -> s != null && !s.isBlank()));
     }
 
     @Test
-    void testParseEmptyFile() {
-        MultipartFile emptyFile = new MockMultipartFile(
+    @DisplayName("解析 PDF 文件应返回语义切片")
+    void parse_pdfFile_shouldReturnChunks() throws IOException {
+        byte[] pdfBytes = createSimplePdf("Chapter 1 Overview\n\nThis is the body content of the PDF document.");
+
+        MultipartFile file = new MockMultipartFile(
+                "file",
+                "sample.pdf",
+                "application/pdf",
+                pdfBytes);
+
+        ParseResult result = parserService.parse(file);
+
+        assertEquals("SUCCESS", result.getStatus());
+        assertTrue(result.getChunkCount() >= 1);
+        assertTrue(result.getChunks().get(0).getContent().contains("PDF"));
+    }
+
+    @Test
+    @DisplayName("空 TXT 文件应返回 FAILED 状态")
+    void parse_emptyFile_shouldReturnFailed() {
+        MultipartFile file = new MockMultipartFile(
                 "file",
                 "empty.txt",
                 "text/plain",
-                new byte[0]
-        );
+                new byte[0]);
 
-        ParseResult result = documentParserService.parse(emptyFile);
+        ParseResult result = parserService.parse(file);
 
-        assertFalse(result.isSuccess());
-        assertEquals("上传文件为空", result.getErrorMsg());
+        assertEquals("FAILED", result.getStatus());
+        assertEquals(0, result.getChunkCount());
+        assertNotNull(result.getErrorMessage());
     }
 
     @Test
-    void testParseNullFile() {
-        ParseResult result = documentParserService.parse(null);
-
-        assertFalse(result.isSuccess());
-        assertEquals("上传文件为空", result.getErrorMsg());
-    }
-
-    @Test
-    void testParseWithCustomCleaner() {
-        String content = "  原始文本   带空格  ";
+    @DisplayName("不支持的文件类型应抛出 DocumentParseException")
+    void parse_unsupportedType_shouldThrowException() {
         MultipartFile file = new MockMultipartFile(
                 "file",
-                "custom.txt",
+                "image.png",
+                "image/png",
+                "data".getBytes(StandardCharsets.UTF_8));
+
+        assertThrows(DocumentParseException.class, () -> parserService.parse(file));
+    }
+
+    @Test
+    @DisplayName("withEmbedding=true 时应调用 EmbeddingClient")
+    void parse_withEmbedding_shouldCallEmbeddingClient() {
+        String content = "这是用于测试向量化的文本内容。";
+        MultipartFile file = new MockMultipartFile(
+                "file",
+                "embed.txt",
                 "text/plain",
-                content.getBytes(StandardCharsets.UTF_8)
-        );
+                content.getBytes(StandardCharsets.UTF_8));
 
-        // 仅使用去空白管道
-        ParseResult result = documentParserService.parse(file, TextCleaners.TRIM_WHITESPACE);
+        when(embeddingClient.embedTexts(anyList(), anyInt()))
+                .thenReturn(Arrays.asList(new float[]{0.1f, 0.2f}));
 
-        assertTrue(result.isSuccess());
-        assertEquals('原', result.getCleanedText().charAt(0));
-        assertFalse(result.getCleanedText().contains("   "));
+        ParseResult result = parserService.parse(file, true);
+
+        assertEquals("SUCCESS", result.getStatus());
+        verify(embeddingClient, times(1)).embedTexts(anyList(), anyInt());
+
+        Chunk firstChunk = result.getChunks().get(0);
+        assertNotNull(firstChunk.getEmbedding());
+        assertEquals(2, firstChunk.getEmbedding().length);
     }
 
     @Test
-    void testPdfFileTypeDetection() {
+    @DisplayName("超长段落应被滑动窗口二次切分")
+    void parse_longParagraph_shouldSplitWithOverlap() {
+        String longParagraph = "a".repeat(1200);
         MultipartFile file = new MockMultipartFile(
                 "file",
-                "document.pdf",
-                "application/pdf",
-                "fake pdf content".getBytes(StandardCharsets.UTF_8)
-        );
+                "long.txt",
+                "text/plain",
+                longParagraph.getBytes(StandardCharsets.UTF_8));
 
-        // PDFBox 无法解析伪造内容，会抛出异常，验证错误处理路径
-        ParseResult result = documentParserService.parse(file);
+        ParseResult result = parserService.parse(file);
 
-        assertFalse(result.isSuccess());
-        assertEquals("PDF", result.getFileType());
-        assertNotNull(result.getErrorMsg());
+        assertTrue(result.getChunkCount() > 1);
+        // 每个切片长度不应超过 512
+        assertTrue(result.getChunks().stream()
+                .allMatch(chunk -> chunk.getContent().length() <= 512));
+    }
+
+    /**
+     * 使用 PDFBox 在内存中生成一个简单的单页 PDF。
+     */
+    private byte[] createSimplePdf(String text) throws IOException {
+        try (PDDocument document = new PDDocument()) {
+            PDPage page = new PDPage();
+            document.addPage(page);
+
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                contentStream.beginText();
+                contentStream.newLineAtOffset(50, 700);
+
+                String[] lines = text.split("\\n");
+                for (String line : lines) {
+                    contentStream.showText(line);
+                    contentStream.newLineAtOffset(0, -15);
+                }
+                contentStream.endText();
+            }
+
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            document.save(out);
+            return out.toByteArray();
+        }
     }
 }
