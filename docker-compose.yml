@@ -147,7 +147,8 @@ services:
       - ES_HOSTS=http://elasticsearch:9200
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
-      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-doubao-embedding-large}
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-doubao-embedding-large-text-250515}
+      - MILVUS_DIMENSION=${MILVUS_DIMENSION:-2048}
     depends_on:
       nacos:
         condition: service_healthy

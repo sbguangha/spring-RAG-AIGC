@@ -105,6 +105,21 @@ rag:
     queue-capacity: 200
     keep-alive-seconds: 60
 
+# 向量库连接配置（Milvus / Elasticsearch）
+vector:
+  milvus:
+    host: ${MILVUS_HOST:127.0.0.1}
+    port: ${MILVUS_PORT:19530}
+    database-name: aigc_knowledge
+    collection-name: knowledge_chunks
+    # 豆包 doubao-embedding-large-text-250515 默认输出维度为 2048
+    dimension: ${MILVUS_DIMENSION:2048}
+  elasticsearch:
+    hosts: ${ES_HOSTS:http://127.0.0.1:9200}
+    username: ${ES_USERNAME:}
+    password: ${ES_PASSWORD:}
+    index-prefix: aigc
+
 # 编排异步线程池：用于多模型并发调用/结果融合
 async:
   executor:

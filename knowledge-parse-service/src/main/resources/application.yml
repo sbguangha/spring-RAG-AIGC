@@ -51,8 +51,8 @@ spring:
       base-url: ${OPENAI_BASE_URL:https://ark.cn-beijing.volces.com/api/v3}
       embedding:
         options:
-          # Doubao 嵌入模型示例：doubao-embedding-large；DeepSeek 可替换为对应模型名
-          model: ${OPENAI_EMBEDDING_MODEL:doubao-embedding-large}
+          # 豆包 Embedding 模型，默认维度 2048，使用 MRL 时可选 1024/512/256
+          model: ${OPENAI_EMBEDDING_MODEL:doubao-embedding-large-text-250515}
     vectorstore:
       # 禁用 Spring AI starter 的自动配置，使用项目自定义 VectorStoreConfig
       milvus:
@@ -77,7 +77,7 @@ vector:
     port: ${MILVUS_PORT:19530}
     database-name: aigc_knowledge
     collection-name: knowledge_chunks
-    dimension: 1536
+    dimension: ${MILVUS_DIMENSION:2048}
   elasticsearch:
     hosts: ${ES_HOSTS:http://127.0.0.1:9200}
     username: ${ES_USERNAME:}
