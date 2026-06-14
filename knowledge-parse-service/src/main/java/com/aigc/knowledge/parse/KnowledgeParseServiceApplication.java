@@ -22,7 +22,10 @@ import java.util.stream.IntStream;
 @Slf4j
 @EnableAsync
 @EnableDiscoveryClient
-@SpringBootApplication
+@SpringBootApplication(excludeName = {
+        "org.springframework.ai.vectorstore.milvus.autoconfigure.MilvusVectorStoreAutoConfiguration",
+        "org.springframework.ai.vectorstore.elasticsearch.autoconfigure.ElasticsearchVectorStoreAutoConfiguration"
+})
 public class KnowledgeParseServiceApplication {
 
     public static void main(String[] args) {

@@ -15,6 +15,12 @@
     <description>AI 编排服务：RAG 检索、Prompt 编排、模型路由、结果融合</description>
 
     <dependencies>
+        <!-- Servlet Web：RAG HTTP 接口 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
         <!-- Spring Cloud Alibaba -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
@@ -59,6 +65,10 @@
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-java</artifactId>
         </dependency>
 
         <!-- OpenFeign：调用知识解析与内容生成服务 -->

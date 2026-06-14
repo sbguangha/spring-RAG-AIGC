@@ -15,6 +15,12 @@
     <description>内容生成服务：多模态文案、图片、视频脚本生成</description>
 
     <dependencies>
+        <!-- Servlet Web：内容生成 HTTP 接口 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
         <!-- Spring Cloud Alibaba -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>

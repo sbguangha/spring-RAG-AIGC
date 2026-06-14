@@ -34,8 +34,8 @@
 
         <!-- 向量/存储客户端 -->
         <milvus-sdk-java.version>2.4.9</milvus-sdk-java.version>
-        <elasticsearch-java.version>8.17.0</elasticsearch-java.version>
-        <elasticsearch-rest-client.version>8.17.0</elasticsearch-rest-client.version>
+        <elasticsearch-java.version>8.18.1</elasticsearch-java.version>
+        <elasticsearch-rest-client.version>8.18.1</elasticsearch-rest-client.version>
 
         <!-- Spring AI OpenAI / Vector Store 版本（必须与 Spring AI Alibaba 1.0.0.4 内置的 Spring AI 版本一致） -->
         <spring-ai.version>1.0.1</spring-ai.version>
@@ -171,10 +171,6 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

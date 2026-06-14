@@ -1,30 +1,9 @@
-# 多阶段构建：先编译 content-gen-service，再运行
-FROM maven:3.9.9-eclipse-temurin-17-alpine AS builder
-
-WORKDIR /build
-
-# 1. 复制所有 pom.xml，利用 Docker 缓存依赖层
-COPY pom.xml .
-COPY knowledge-parse-service/pom.xml knowledge-parse-service/
-COPY ai-orchestration-service/pom.xml ai-orchestration-service/
-COPY content-gen-service/pom.xml content-gen-service/
-COPY spring-cloud-gateway/pom.xml spring-cloud-gateway/
-
-# 2. 复制源码
-COPY knowledge-parse-service/src knowledge-parse-service/src
-COPY ai-orchestration-service/src ai-orchestration-service/src
-COPY content-gen-service/src content-gen-service/src
-COPY spring-cloud-gateway/src spring-cloud-gateway/src
-
-# 3. 构建当前模块及其依赖模块
-RUN mvn clean package -DskipTests -B -pl content-gen-service -am
-
-# 运行阶段
 FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
-COPY --from=builder /build/content-gen-service/target/*.jar app.jar
+# 先在仓库根目录执行 mvn package，再构建镜像，避免容器内重复下载 Maven 依赖。
+COPY content-gen-service/target/content-gen-service-*.jar app.jar
 
 EXPOSE 8003
 

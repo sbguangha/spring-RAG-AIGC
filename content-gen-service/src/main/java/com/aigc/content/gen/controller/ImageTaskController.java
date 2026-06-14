@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -67,7 +66,7 @@ public class ImageTaskController {
      * @return 任务状态响应
      */
     @GetMapping("/status/{taskId}")
-    public ImageTaskResponse getStatus(@PathVariable String taskId) {
+    public ImageTaskResponse getStatus(@PathVariable("taskId") String taskId) {
         String key = imageGenerationService.buildResultKey(taskId);
 
         // 从 Redis Hash 读取任务状态，使用 Optional 处理 null/不存在的情况

@@ -9,6 +9,7 @@ import org.springframework.ai.vectorstore.elasticsearch.ElasticsearchVectorStore
 import org.springframework.ai.vectorstore.elasticsearch.ElasticsearchVectorStoreOptions;
 import org.springframework.ai.vectorstore.milvus.MilvusVectorStore;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -39,7 +40,7 @@ public class VectorStoreConfig {
     @Bean
     @Primary
     public VectorStore milvusVectorStore(MilvusServiceClient milvusServiceClient,
-                                          EmbeddingModel embeddingModel,
+                                          @Qualifier("openAiEmbeddingModel") EmbeddingModel embeddingModel,
                                           @Value("${vector.milvus.database-name:aigc_knowledge}") String databaseName,
                                           @Value("${vector.milvus.collection-name:knowledge_chunks}") String collectionName,
                                           @Value("${vector.milvus.dimension:1536}") int dimension) {
@@ -66,7 +67,7 @@ public class VectorStoreConfig {
 
     @Bean
     public VectorStore elasticsearchVectorStore(RestClient restClient,
-                                                 EmbeddingModel embeddingModel,
+                                                 @Qualifier("openAiEmbeddingModel") EmbeddingModel embeddingModel,
                                                  @Value("${vector.elasticsearch.index-prefix:aigc}") String indexPrefix,
                                                  @Value("${vector.elasticsearch.similarity:cosine}") String similarity) {
         String indexName = indexPrefix + "_knowledge_chunks";

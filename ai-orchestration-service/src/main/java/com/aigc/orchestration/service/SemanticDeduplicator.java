@@ -1,6 +1,5 @@
 package com.aigc.orchestration.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.document.Document;
@@ -8,6 +7,7 @@ import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -40,7 +40,7 @@ public class SemanticDeduplicator {
     }
 
     @Autowired
-    public SemanticDeduplicator(EmbeddingModel embeddingModel,
+    public SemanticDeduplicator(@Qualifier("openAiEmbeddingModel") EmbeddingModel embeddingModel,
                                 @Value("${rag.semantic-dedup.enabled:true}") boolean enabled,
                                 @Value("${rag.semantic-dedup.threshold:0.92}") double similarityThreshold) {
         this.embeddingModel = embeddingModel;

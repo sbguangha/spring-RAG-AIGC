@@ -24,7 +24,10 @@ import java.util.stream.Collectors;
 @EnableAsync
 @EnableFeignClients(basePackages = "com.aigc.orchestration.client")
 @EnableDiscoveryClient
-@SpringBootApplication
+@SpringBootApplication(excludeName = {
+        "org.springframework.ai.vectorstore.milvus.autoconfigure.MilvusVectorStoreAutoConfiguration",
+        "org.springframework.ai.vectorstore.elasticsearch.autoconfigure.ElasticsearchVectorStoreAutoConfiguration"
+})
 public class AiOrchestrationServiceApplication {
 
     public static void main(String[] args) {

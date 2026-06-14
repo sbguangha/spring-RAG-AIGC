@@ -1,0 +1,6 @@
+**
+!pom.xml
+!knowledge-parse-service/target/*.jar
+!ai-orchestration-service/target/*.jar
+!content-gen-service/target/*.jar
+!spring-cloud-gateway/target/*.jar

@@ -16,6 +16,8 @@ spring:
         group: AIGC_GROUP
         register-enabled: true
       config:
+        import-check:
+          enabled: false
         namespace: ${NACOS_NAMESPACE:aigc-dev}
         group: AIGC_GROUP
         file-extension: yaml
@@ -89,11 +91,12 @@ spring:
             allowedMethods: "*"
             allowedHeaders: "*"
             allowCredentials: false
-  redis:
-    host: ${REDIS_HOST:127.0.0.1}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
-    database: 9
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 9
 
 management:
   endpoints:

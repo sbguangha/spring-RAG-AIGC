@@ -15,6 +15,12 @@
     <description>知识解析服务：文档解析、切片、向量化、索引构建</description>
 
     <dependencies>
+        <!-- Servlet Web：文档解析 HTTP 接口 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
         <!-- Spring Cloud Alibaba：服务注册/配置/限流 -->
         <dependency>
             <groupId>com.alibaba.cloud</groupId>
@@ -37,6 +43,10 @@
         <dependency>
             <groupId>org.elasticsearch.client</groupId>
             <artifactId>elasticsearch-rest-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-java</artifactId>
         </dependency>
 
         <!-- Redis（已继承父 POM）-->
