@@ -1,8 +1,19 @@
 import axios, { AxiosError } from 'axios'
 import type { ApiResponse, GatewayRoute } from '@/types'
 
+const apiBaseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+const gatewayBaseURL = apiBaseURL.endsWith('/api') ? apiBaseURL.slice(0, -4) || '/' : apiBaseURL
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: apiBaseURL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+const gatewayClient = axios.create({
+  baseURL: gatewayBaseURL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -29,8 +40,14 @@ api.interceptors.response.use(
 export default api
 
 export const gatewayApi = {
-  getRoutes: () => api.get<GatewayRoute[]>('/actuator/gateway/routes').catch(() => ({ data: [] })),
-  health: () => api.get('/actuator/health').catch(() => ({ data: { status: 'UNKNOWN' } })),
+  getRoutes: async () => {
+    const root = await gatewayClient.get('/actuator').catch(() => ({ data: { _links: {} } }))
+    const hasGatewayEndpoint = Boolean(root.data?._links?.gateway)
+    return hasGatewayEndpoint
+      ? gatewayClient.get<GatewayRoute[]>('/actuator/gateway/routes').catch(() => ({ data: [] }))
+      : { data: [] }
+  },
+  health: () => gatewayClient.get('/actuator/health').catch(() => ({ data: { status: 'UNKNOWN' } })),
 }
 
 export const knowledgeApi = {
