@@ -40,7 +40,7 @@ public class SemanticDeduplicator {
     }
 
     @Autowired
-    public SemanticDeduplicator(@Qualifier("openAiEmbeddingModel") EmbeddingModel embeddingModel,
+    public SemanticDeduplicator(@Qualifier("bailianEmbeddingModel") EmbeddingModel embeddingModel,
                                 @Value("${rag.semantic-dedup.enabled:true}") boolean enabled,
                                 @Value("${rag.semantic-dedup.threshold:0.92}") double similarityThreshold) {
         this.embeddingModel = embeddingModel;

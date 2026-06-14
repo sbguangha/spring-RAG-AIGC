@@ -4,6 +4,8 @@ server:
     context-path: /
 
 spring:
+  main:
+    allow-bean-definition-overriding: true
   application:
     name: ai-orchestration-service
   profiles:
@@ -69,9 +71,12 @@ spring:
           temperature: 0.7
           max-tokens: 2048
       embedding:
-        embeddings-path: ${OPENAI_EMBEDDINGS_PATH:/embeddings}
+        # RAG 检索向量化使用阿里云百炼 OpenAI 兼容接口，不影响上面的 Doubao Chat 配置。
+        api-key: ${ALI_AI_API_KEY:YOUR_BAILIAN_API_KEY}
+        base-url: ${ALI_AI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+        embeddings-path: ${ALI_AI_EMBEDDINGS_PATH:/embeddings}
         options:
-          model: ${OPENAI_EMBEDDING_MODEL:doubao-embedding-large-text-250515}
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-v4}
 
     vectorstore:
       milvus:
@@ -121,14 +126,14 @@ vector:
     host: ${MILVUS_HOST:127.0.0.1}
     port: ${MILVUS_PORT:19530}
     database-name: aigc_knowledge
-    collection-name: knowledge_chunks
-    # 豆包 doubao-embedding-large-text-250515 默认输出维度为 2048
-    dimension: ${MILVUS_DIMENSION:2048}
+    collection-name: ${MILVUS_COLLECTION_NAME:knowledge_chunks_v4}
+    # 百炼 text-embedding-v4 默认输出维度为 1024
+    dimension: ${MILVUS_DIMENSION:1024}
   elasticsearch:
     hosts: ${ES_HOSTS:http://127.0.0.1:9200}
     username: ${ES_USERNAME:}
     password: ${ES_PASSWORD:}
-    index-prefix: aigc
+    index-prefix: ${ES_INDEX_PREFIX:aigc_v4}
 
 # 编排异步线程池：用于多模型并发调用/结果融合
 async:

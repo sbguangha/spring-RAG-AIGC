@@ -93,7 +93,7 @@ services:
       - "9000:9000"
       - "9001:9001"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ["CMD-SHELL", "timeout 5 bash -c 'echo > /dev/tcp/localhost/9000'"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -148,9 +148,13 @@ services:
       - ES_HOSTS=http://elasticsearch:9200
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
-      - OPENAI_EMBEDDINGS_PATH=${OPENAI_EMBEDDINGS_PATH:-/embeddings}
-      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-doubao-embedding-large-text-250515}
-      - MILVUS_DIMENSION=${MILVUS_DIMENSION:-2048}
+      - ALI_AI_API_KEY=${ALI_AI_API_KEY}
+      - ALI_AI_BASE_URL=${ALI_AI_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      - ALI_AI_EMBEDDINGS_PATH=${ALI_AI_EMBEDDINGS_PATH:-/embeddings}
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-text-embedding-v4}
+      - MILVUS_DIMENSION=${MILVUS_DIMENSION:-1024}
+      - MILVUS_COLLECTION_NAME=${MILVUS_COLLECTION_NAME:-knowledge_chunks_v4}
+      - ES_INDEX_PREFIX=${ES_INDEX_PREFIX:-aigc_v4}
     depends_on:
       nacos:
         condition: service_healthy
@@ -179,10 +183,14 @@ services:
       - ES_HOSTS=http://elasticsearch:9200
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
-      - OPENAI_EMBEDDINGS_PATH=${OPENAI_EMBEDDINGS_PATH:-/embeddings}
-      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-doubao-embedding-large-text-250515}
+      - ALI_AI_BASE_URL=${ALI_AI_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      - ALI_AI_EMBEDDINGS_PATH=${ALI_AI_EMBEDDINGS_PATH:-/embeddings}
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-text-embedding-v4}
       - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-doubao-pro-32k-241215}
       - ALI_AI_API_KEY=${ALI_AI_API_KEY}
+      - MILVUS_DIMENSION=${MILVUS_DIMENSION:-1024}
+      - MILVUS_COLLECTION_NAME=${MILVUS_COLLECTION_NAME:-knowledge_chunks_v4}
+      - ES_INDEX_PREFIX=${ES_INDEX_PREFIX:-aigc_v4}
     depends_on:
       nacos:
         condition: service_healthy

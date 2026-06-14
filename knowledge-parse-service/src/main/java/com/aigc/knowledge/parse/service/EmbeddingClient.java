@@ -1,10 +1,10 @@
 package com.aigc.knowledge.parse.service;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.embedding.EmbeddingRequest;
 import org.springframework.ai.embedding.EmbeddingResponse;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -22,10 +22,13 @@ import java.util.stream.IntStream;
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class EmbeddingClient {
 
     private final EmbeddingModel embeddingModel;
+
+    public EmbeddingClient(@Qualifier("bailianEmbeddingModel") EmbeddingModel embeddingModel) {
+        this.embeddingModel = embeddingModel;
+    }
 
     /**
      * 批量获取文本切片的向量嵌入。

@@ -35,7 +35,8 @@ class VectorStoreWriterTest {
 
     @BeforeEach
     void setUp() {
-        vectorStoreWriter = new VectorStoreWriter(milvusVectorStore, elasticsearchVectorStore);
+        vectorStoreWriter = new VectorStoreWriter(milvusVectorStore, elasticsearchVectorStore,
+                "knowledge_chunks_v4", "aigc_v4");
     }
 
     @Test
