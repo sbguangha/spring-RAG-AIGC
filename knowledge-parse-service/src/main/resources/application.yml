@@ -53,6 +53,7 @@ spring:
       api-key: ${OPENAI_API_KEY:your-api-key}
       base-url: ${OPENAI_BASE_URL:https://ark.cn-beijing.volces.com/api/v3}
       embedding:
+        embeddings-path: ${OPENAI_EMBEDDINGS_PATH:/embeddings}
         options:
           # 豆包 Embedding 模型，默认维度 2048，使用 MRL 时可选 1024/512/256
           model: ${OPENAI_EMBEDDING_MODEL:doubao-embedding-large-text-250515}

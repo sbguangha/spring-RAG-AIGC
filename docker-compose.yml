@@ -148,6 +148,7 @@ services:
       - ES_HOSTS=http://elasticsearch:9200
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      - OPENAI_EMBEDDINGS_PATH=${OPENAI_EMBEDDINGS_PATH:-/embeddings}
       - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-doubao-embedding-large-text-250515}
       - MILVUS_DIMENSION=${MILVUS_DIMENSION:-2048}
     depends_on:
@@ -178,6 +179,8 @@ services:
       - ES_HOSTS=http://elasticsearch:9200
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://ark.cn-beijing.volces.com/api/v3}
+      - OPENAI_EMBEDDINGS_PATH=${OPENAI_EMBEDDINGS_PATH:-/embeddings}
+      - OPENAI_EMBEDDING_MODEL=${OPENAI_EMBEDDING_MODEL:-doubao-embedding-large-text-250515}
       - OPENAI_CHAT_MODEL=${OPENAI_CHAT_MODEL:-doubao-pro-32k-241215}
       - ALI_AI_API_KEY=${ALI_AI_API_KEY}
     depends_on:

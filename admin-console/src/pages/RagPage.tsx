@@ -71,7 +71,7 @@ export default function RagPage() {
     } catch (err) {
       const errorMsg = err instanceof Error && err.name === 'AbortError'
         ? '已停止生成。'
-        : '调用 RAG 服务失败，请检查 ai-orchestration-service 是否已注册到 Nacos。'
+        : '调用 RAG 服务失败，请检查网关路由、ai-orchestration-service 日志和模型配置。'
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantId

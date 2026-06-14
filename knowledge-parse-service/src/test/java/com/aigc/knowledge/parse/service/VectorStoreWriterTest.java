@@ -1,6 +1,7 @@
 package com.aigc.knowledge.parse.service;
 
 import com.aigc.knowledge.parse.dto.Chunk;
+import com.aigc.knowledge.parse.exception.DocumentParseException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -73,6 +74,18 @@ class VectorStoreWriterTest {
         vectorStoreWriter.writeChunks(chunks, "test.txt");
 
         verify(elasticsearchVectorStore, times(1)).add(anyList());
+    }
+
+    @Test
+    @DisplayName("两个向量库均写入失败时应抛出异常")
+    void writeChunks_withAllStoresFailure_shouldThrow() {
+        List<Chunk> chunks = Collections.singletonList(
+                Chunk.builder().index(0).content("内容").build());
+
+        doThrow(new RuntimeException("Milvus 异常")).when(milvusVectorStore).add(anyList());
+        doThrow(new RuntimeException("ES 异常")).when(elasticsearchVectorStore).add(anyList());
+
+        assertThrows(DocumentParseException.class, () -> vectorStoreWriter.writeChunks(chunks, "test.txt"));
     }
 
     @Test

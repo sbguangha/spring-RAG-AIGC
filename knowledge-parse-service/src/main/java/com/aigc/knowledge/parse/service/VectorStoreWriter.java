@@ -1,6 +1,7 @@
 package com.aigc.knowledge.parse.service;
 
 import com.aigc.knowledge.parse.dto.Chunk;
+import com.aigc.knowledge.parse.exception.DocumentParseException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
@@ -56,8 +57,11 @@ public class VectorStoreWriter {
                 .map(chunk -> toDocument(chunk, fileName))
                 .collect(Collectors.toList());
 
-        writeToMilvus(documents, fileName);
-        writeToElasticsearch(documents, fileName);
+        boolean milvusSuccess = writeToMilvus(documents, fileName);
+        boolean elasticsearchSuccess = writeToElasticsearch(documents, fileName);
+        if (!milvusSuccess && !elasticsearchSuccess) {
+            throw new DocumentParseException("向量库写入失败：Milvus 和 Elasticsearch 均未写入成功");
+        }
     }
 
     private Document toDocument(Chunk chunk, String fileName) {
@@ -77,21 +81,25 @@ public class VectorStoreWriter {
         return new Document(chunk.getContent(), metadata);
     }
 
-    private void writeToMilvus(List<Document> documents, String fileName) {
+    private boolean writeToMilvus(List<Document> documents, String fileName) {
         try {
             milvusVectorStore.add(documents);
             log.info("写入 Milvus 成功, fileName={}, count={}", fileName, documents.size());
+            return true;
         } catch (Exception e) {
             log.error("写入 Milvus 失败, fileName={}", fileName, e);
+            return false;
         }
     }
 
-    private void writeToElasticsearch(List<Document> documents, String fileName) {
+    private boolean writeToElasticsearch(List<Document> documents, String fileName) {
         try {
             elasticsearchVectorStore.add(documents);
             log.info("写入 ES 成功, fileName={}, count={}", fileName, documents.size());
+            return true;
         } catch (Exception e) {
             log.error("写入 ES 失败, fileName={}", fileName, e);
+            return false;
         }
     }
 }

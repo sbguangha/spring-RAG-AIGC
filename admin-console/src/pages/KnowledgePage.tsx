@@ -18,12 +18,23 @@ const statusMap: Record<string, { label: string; color: string }> = {
 export default function KnowledgePage() {
   const [dragActive, setDragActive] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadMessage, setUploadMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleUpload = async (file: File) => {
     setUploading(true)
+    setUploadMessage(null)
     try {
-      await knowledgeApi.parseAndIndex(file)
+      const response = await knowledgeApi.parseAndIndex(file)
+      setUploadMessage({
+        type: 'success',
+        text: `上传成功：${file.name}，切片 ${response.data?.chunkCount ?? 0} 个，已提交向量库写入。`,
+      })
+    } catch (error) {
+      setUploadMessage({
+        type: 'error',
+        text: `上传失败：${file.name}。请检查文件类型、模型配置和向量库写入日志。`,
+      })
     } finally {
       setUploading(false)
     }
@@ -71,18 +82,26 @@ export default function KnowledgePage() {
           </button>
         </h3>
         <p className="mt-2 text-sm text-ink-500">
-          支持 PDF、Word、Markdown、TXT（最大 50MB）
+          支持 PDF、TXT（最大 50MB）
         </p>
         <input
           ref={inputRef}
           type="file"
           className="hidden"
-          accept=".pdf,.doc,.docx,.md,.txt"
+          accept=".pdf,.txt"
           aria-label="上传文档"
           onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
         />
         {uploading && (
           <div className="mt-4 text-sm text-signal-cyan">正在上传并解析…</div>
+        )}
+        {uploadMessage && (
+          <div className={`mt-4 text-sm ${
+            uploadMessage.type === 'success' ? 'text-signal-emerald' : 'text-signal-rose'
+          }`}
+          >
+            {uploadMessage.text}
+          </div>
         )}
       </section>
 
