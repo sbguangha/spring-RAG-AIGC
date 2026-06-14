@@ -98,7 +98,8 @@ feign:
 # RAG 检索配置
 rag:
   top-k: 5
-  score-threshold: 0.65
+  # 临时降低阈值以测试召回效果，生产环境建议调回 0.5~0.65
+  score-threshold: 0.3
   rerank-enabled: true
   hybrid-search:
     vector-weight: 0.7

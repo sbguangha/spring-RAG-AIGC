@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -35,14 +36,18 @@ public class VectorStoreWriter {
 
     private final String elasticsearchIndexName;
 
+    private final boolean strictWriteMode;
+
     public VectorStoreWriter(@Qualifier("milvusVectorStore") VectorStore milvusVectorStore,
                              @Qualifier("elasticsearchVectorStore") VectorStore elasticsearchVectorStore,
                              @Value("${vector.milvus.collection-name:knowledge_chunks_v4}") String milvusCollectionName,
-                             @Value("${vector.elasticsearch.index-prefix:aigc_v4}") String elasticsearchIndexPrefix) {
+                             @Value("${vector.elasticsearch.index-prefix:aigc_v4}") String elasticsearchIndexPrefix,
+                             @Value("${vector.write.strict-mode:true}") boolean strictWriteMode) {
         this.milvusVectorStore = milvusVectorStore;
         this.elasticsearchVectorStore = elasticsearchVectorStore;
         this.milvusCollectionName = milvusCollectionName;
         this.elasticsearchIndexName = elasticsearchIndexPrefix + "_knowledge_chunks";
+        this.strictWriteMode = strictWriteMode;
     }
 
     /**
@@ -52,6 +57,24 @@ public class VectorStoreWriter {
      * 超过会返回 {@code InvalidParameter: batch size is invalid, it should not be larger than 10}。
      */
     private static final int EMBEDDING_BATCH_SIZE = 10;
+
+    /**
+     * 向量库批量写入结果。
+     */
+    @lombok.Value
+    private static class WriteResult {
+        int successCount;
+        int failCount;
+        List<String> errors;
+
+        boolean isSuccess() {
+            return failCount == 0 && successCount > 0;
+        }
+
+        boolean hasAnySuccess() {
+            return successCount > 0;
+        }
+    }
 
     /**
      * 将 Chunk 列表写入向量库。
@@ -76,18 +99,30 @@ public class VectorStoreWriter {
                 .map(chunk -> toDocument(chunk, fileName))
                 .collect(Collectors.toList());
 
-        log.info("开始向向量库写入, fileName={}, chunks={}, milvusCollection={}, esIndex={}",
-                fileName, documents.size(), milvusCollectionName, elasticsearchIndexName);
+        log.info("开始向向量库写入, fileName={}, chunks={}, milvusCollection={}, esIndex={}, strictMode={}",
+                fileName, documents.size(), milvusCollectionName, elasticsearchIndexName, strictWriteMode);
 
-        boolean milvusSuccess = writeBatchesToMilvus(documents, fileName);
-        boolean elasticsearchSuccess = writeBatchesToElasticsearch(documents, fileName);
-        if (!milvusSuccess && !elasticsearchSuccess) {
+        WriteResult milvusResult = writeBatchesToMilvus(documents, fileName);
+        WriteResult esResult = writeBatchesToElasticsearch(documents, fileName);
+
+        // 严格模式：要求 Milvus 和 ES 全部成功；非严格模式：至少有一个成功
+        boolean allSuccess = milvusResult.isSuccess() && esResult.isSuccess();
+        boolean anySuccess = milvusResult.hasAnySuccess() || esResult.hasAnySuccess();
+
+        if (strictWriteMode) {
+            if (!allSuccess) {
+                throw new DocumentParseException(String.format(
+                        "向量库写入失败（严格模式要求双写均成功）：Milvus=%s, ES=%s, fileName=%s, chunks=%d, milvusCollection=%s, esIndex=%s",
+                        milvusResult, esResult, fileName, documents.size(), milvusCollectionName, elasticsearchIndexName));
+            }
+        } else if (!anySuccess) {
             throw new DocumentParseException(String.format(
-                    "向量库写入失败：Milvus=%s, ES=%s, fileName=%s, chunks=%d, milvusCollection=%s, esIndex=%s",
-                    milvusSuccess, elasticsearchSuccess, fileName, documents.size(), milvusCollectionName, elasticsearchIndexName));
+                    "向量库写入失败（双写均不可用）：Milvus=%s, ES=%s, fileName=%s, chunks=%d, milvusCollection=%s, esIndex=%s",
+                    milvusResult, esResult, fileName, documents.size(), milvusCollectionName, elasticsearchIndexName));
         }
-        log.info("向量库写入完成, fileName={}, milvusSuccess={}, esSuccess={}",
-                fileName, milvusSuccess, elasticsearchSuccess);
+
+        log.info("向量库写入完成, fileName={}, strictMode={}, milvus={}, es={}",
+                fileName, strictWriteMode, milvusResult, esResult);
     }
 
     private Document toDocument(Chunk chunk, String fileName) {
@@ -107,65 +142,65 @@ public class VectorStoreWriter {
         return new Document(chunk.getContent(), metadata);
     }
 
-    private boolean writeBatchesToMilvus(List<Document> documents, String fileName) {
+    private WriteResult writeBatchesToMilvus(List<Document> documents, String fileName) {
         if (documents.isEmpty()) {
-            return true;
+            return new WriteResult(0, 0, Collections.emptyList());
         }
         int total = documents.size();
         int successCount = 0;
+        int failCount = 0;
+        List<String> errors = new ArrayList<>();
+
         for (int i = 0; i < total; i += EMBEDDING_BATCH_SIZE) {
             List<Document> batch = documents.subList(i, Math.min(i + EMBEDDING_BATCH_SIZE, total));
-            if (writeToMilvus(batch, fileName)) {
+            try {
+                milvusVectorStore.add(batch);
                 successCount += batch.size();
+                if (log.isDebugEnabled()) {
+                    log.debug("写入 Milvus 成功, fileName={}, batchIndex={}, batchSize={}", fileName, i, batch.size());
+                }
+            } catch (Exception e) {
+                failCount += batch.size();
+                String error = String.format("Milvus batch [%d,%d) 失败: %s", i, Math.min(i + EMBEDDING_BATCH_SIZE, total), e.getMessage());
+                errors.add(error);
+                log.error("写入 Milvus 失败, fileName={}, batchIndex={}, batchSize={}", fileName, i, batch.size(), e);
             }
         }
-        log.info("Milvus 分批写入完成, fileName={}, success={}/{}"
-                + (successCount < total ? ", 部分批次失败已降级" : ""),
-                fileName, successCount, total);
-        return successCount > 0;
+
+        WriteResult result = new WriteResult(successCount, failCount, errors);
+        log.info("Milvus 分批写入完成, fileName={}, result={}, milvusCollection={}",
+                fileName, result, milvusCollectionName);
+        return result;
     }
 
-    private boolean writeBatchesToElasticsearch(List<Document> documents, String fileName) {
+    private WriteResult writeBatchesToElasticsearch(List<Document> documents, String fileName) {
         if (documents.isEmpty()) {
-            return true;
+            return new WriteResult(0, 0, Collections.emptyList());
         }
         int total = documents.size();
         int successCount = 0;
+        int failCount = 0;
+        List<String> errors = new ArrayList<>();
+
         for (int i = 0; i < total; i += EMBEDDING_BATCH_SIZE) {
             List<Document> batch = documents.subList(i, Math.min(i + EMBEDDING_BATCH_SIZE, total));
-            if (writeToElasticsearch(batch, fileName)) {
+            try {
+                elasticsearchVectorStore.add(batch);
                 successCount += batch.size();
+                if (log.isDebugEnabled()) {
+                    log.debug("写入 ES 成功, fileName={}, batchIndex={}, batchSize={}", fileName, i, batch.size());
+                }
+            } catch (Exception e) {
+                failCount += batch.size();
+                String error = String.format("ES batch [%d,%d) 失败: %s", i, Math.min(i + EMBEDDING_BATCH_SIZE, total), e.getMessage());
+                errors.add(error);
+                log.error("写入 ES 失败, fileName={}, batchIndex={}, batchSize={}", fileName, i, batch.size(), e);
             }
         }
-        log.info("ES 分批写入完成, fileName={}, success={}/{}"
-                + (successCount < total ? ", 部分批次失败已降级" : ""),
-                fileName, successCount, total);
-        return successCount > 0;
-    }
 
-    private boolean writeToMilvus(List<Document> documents, String fileName) {
-        try {
-            milvusVectorStore.add(documents);
-            if (log.isDebugEnabled()) {
-                log.debug("写入 Milvus 成功, fileName={}, count={}", fileName, documents.size());
-            }
-            return true;
-        } catch (Exception e) {
-            log.error("写入 Milvus 失败, fileName={}, batchSize={}", fileName, documents.size(), e);
-            return false;
-        }
-    }
-
-    private boolean writeToElasticsearch(List<Document> documents, String fileName) {
-        try {
-            elasticsearchVectorStore.add(documents);
-            if (log.isDebugEnabled()) {
-                log.debug("写入 ES 成功, fileName={}, count={}", fileName, documents.size());
-            }
-            return true;
-        } catch (Exception e) {
-            log.error("写入 ES 失败, fileName={}, batchSize={}", fileName, documents.size(), e);
-            return false;
-        }
+        WriteResult result = new WriteResult(successCount, failCount, errors);
+        log.info("ES 分批写入完成, fileName={}, result={}, esIndex={}",
+                fileName, result, elasticsearchIndexName);
+        return result;
     }
 }

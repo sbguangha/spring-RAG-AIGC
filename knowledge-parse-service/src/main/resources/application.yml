@@ -77,6 +77,10 @@ parse:
 
 # 向量库占位配置
 vector:
+  write:
+    # 严格模式：要求 Milvus 和 Elasticsearch 全部写入成功，否则抛异常。
+    # 关闭后允许单库失败降级，但双写均失败时仍会抛异常。
+    strict-mode: true
   milvus:
     host: ${MILVUS_HOST:127.0.0.1}
     port: ${MILVUS_PORT:19530}

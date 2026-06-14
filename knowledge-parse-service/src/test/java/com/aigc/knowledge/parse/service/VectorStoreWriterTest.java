@@ -36,7 +36,15 @@ class VectorStoreWriterTest {
     @BeforeEach
     void setUp() {
         vectorStoreWriter = new VectorStoreWriter(milvusVectorStore, elasticsearchVectorStore,
-                "knowledge_chunks_v4", "aigc_v4");
+                "knowledge_chunks_v4", "aigc_v4", true);
+    }
+
+    /**
+     * 构造非严格模式的写入器，用于测试降级场景。
+     */
+    private VectorStoreWriter lenientWriter() {
+        return new VectorStoreWriter(milvusVectorStore, elasticsearchVectorStore,
+                "knowledge_chunks_v4", "aigc_v4", false);
     }
 
     @Test
@@ -65,14 +73,25 @@ class VectorStoreWriterTest {
     }
 
     @Test
-    @DisplayName("Milvus 写入失败时不应影响 ES 写入")
-    void writeChunks_withMilvusFailure_shouldStillWriteToEs() {
+    @DisplayName("严格模式下 Milvus 写入失败应抛异常")
+    void writeChunks_withMilvusFailureInStrictMode_shouldThrow() {
         List<Chunk> chunks = Collections.singletonList(
                 Chunk.builder().index(0).content("内容").build());
 
         doThrow(new RuntimeException("Milvus 异常")).when(milvusVectorStore).add(anyList());
 
-        vectorStoreWriter.writeChunks(chunks, "test.txt");
+        assertThrows(DocumentParseException.class, () -> vectorStoreWriter.writeChunks(chunks, "test.txt"));
+    }
+
+    @Test
+    @DisplayName("非严格模式下 Milvus 写入失败时不应影响 ES 写入")
+    void writeChunks_withMilvusFailureInLenientMode_shouldStillWriteToEs() {
+        List<Chunk> chunks = Collections.singletonList(
+                Chunk.builder().index(0).content("内容").build());
+
+        doThrow(new RuntimeException("Milvus 异常")).when(milvusVectorStore).add(anyList());
+
+        lenientWriter().writeChunks(chunks, "test.txt");
 
         verify(elasticsearchVectorStore, times(1)).add(anyList());
     }

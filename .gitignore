@@ -77,3 +77,6 @@ jacoco.exec
 *.rar
 hs_err_pid*
 replay_pid*
+
+# Playwright MCP temp files
+.playwright-mcp/

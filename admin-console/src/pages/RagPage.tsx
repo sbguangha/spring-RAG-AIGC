@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { Send, Bot, User, Loader2, Square } from 'lucide-react'
 import { aiApi } from '@/services/api'
 
@@ -8,17 +8,68 @@ interface Message {
   content: string
 }
 
-export default function RagPage() {
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const abortRef = useRef<AbortController | null>(null)
-  const [messages, setMessages] = useState<Message[]>([
+const MESSAGES_STORAGE_KEY = 'aigc_rag_messages'
+const SESSION_ID_STORAGE_KEY = 'aigc_rag_session_id'
+
+function generateSessionId() {
+  return 'xxxxxxxxxxxx4xxxyxxxxxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
+function getStoredSessionId(): string {
+  try {
+    const stored = localStorage.getItem(SESSION_ID_STORAGE_KEY)
+    if (stored) return stored
+  } catch {
+    // localStorage 不可用（例如隐私模式）时直接生成新的
+  }
+  const id = generateSessionId()
+  try {
+    localStorage.setItem(SESSION_ID_STORAGE_KEY, id)
+  } catch {
+    // 忽略写入失败
+  }
+  return id
+}
+
+function loadStoredMessages(): Message[] {
+  try {
+    const raw = localStorage.getItem(MESSAGES_STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Message[]
+      if (Array.isArray(parsed) && parsed.every((m) => m.id && m.role && typeof m.content === 'string')) {
+        return parsed
+      }
+    }
+  } catch {
+    // 解析失败时回退到默认欢迎语
+  }
+  return [
     {
       id: 'welcome',
       role: 'assistant',
       content: '你好，我已连接 ai-orchestration-service。可以基于已入库的知识库向我提问。',
     },
-  ])
+  ]
+}
+
+export default function RagPage() {
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+  const sessionIdRef = useRef<string>(getStoredSessionId())
+  const [messages, setMessages] = useState<Message[]>(loadStoredMessages)
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(MESSAGES_STORAGE_KEY, JSON.stringify(messages))
+    } catch {
+      // 忽略写入失败（例如存储空间不足）
+    }
+  }, [messages])
 
   const stop = useCallback(() => {
     abortRef.current?.abort()
@@ -45,7 +96,7 @@ export default function RagPage() {
     abortRef.current = new AbortController()
 
     try {
-      const res = await aiApi.streamChat(question)
+      const res = await aiApi.streamChat(question, sessionIdRef.current)
       if (!res.ok || !res.body) {
         throw new Error(`服务返回 ${res.status}`)
       }
